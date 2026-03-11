@@ -12,27 +12,36 @@ typedef struct {
   enum ValueType type;
 } ValueTyped;
 
-
 ValueTyped *parse_value(Token **start) {
   Token *p = *start;
   ValueTyped *value_typed = malloc(sizeof(ValueTyped));
+  if (!value_typed) {
+    fprintf(stderr, "failed allocate memory for typed value");
+
+    return NULL;
+  }
+
+  value_typed->val = malloc(sizeof(Value));
+  if (!value_typed->val) {
+    fprintf(stderr, "failed allocate memory for value");
+  }
 
   switch (p->type) {
   case STRING: {
-    char *value = calloc(p->len + 1, sizeof(char));
-    if (!value) {
+    char *str = calloc(p->len + 1, sizeof(char));
+    if (!str) {
       fprintf(stderr, "failed allocate memory for value");
 
       return NULL;
     }
 
-    memcpy(value, p->start, p->len);
+    memcpy(str, p->start, p->len);
 
-    value[p->len] = '\0';
+    str[p->len] = '\0';
 
     value_typed->type = STRING_VALUE;
 
-    value_typed->val->str = value;
+    value_typed->val->str = str;
   }
 
   case L_ARR_BRACE: {
@@ -46,6 +55,7 @@ ValueTyped *parse_value(Token **start) {
     value_typed->type = LIST;
 
     value_typed->val->list = lst;
+    break;
   }
 
   case LBRACE: {
@@ -58,10 +68,13 @@ ValueTyped *parse_value(Token **start) {
 
     value_typed->type = OBJECT;
     value_typed->val->obj = obj;
+    break;
   }
 
   default:
     fprintf(stderr, "unknown token type");
+
+    return NULL;
   }
 
   *start = p;
@@ -130,80 +143,70 @@ Pair *parse_pair(Token **start) {
   return pair;
 }
 
-int to_next_brace(Token **start, enum TokenType brace) {
+int count_array_elements(Token **start) {
   Token *p = *start;
 
-  enum TokenType brace_to_find;
-
-  switch (brace) {
-  case L_ARR_BRACE:
-    brace_to_find = R_ARR_BRACE;
-  case LBRACE:
-    brace_to_find = RBRACE;
-  default:
-    fprintf(stderr, "unexpected brace type");
-    
-    return 1;
+  if (!p || p->type != L_ARR_BRACE) {
+    fprintf(stderr, "expexted token");
+    return -1;
   }
+
+  int depth = 1;
+  int count = 0;
+  int after_comma = 0;
 
   p++;
 
-  int opened_branches = 1;
+  while (p && depth > 0) {
+    switch (p->type) {
+    case L_ARR_BRACE: // [
+    case LBRACE:      // {
+      depth++;
+      after_comma = 0;
+      break;
 
-  while (opened_branches != 0) {
-    if (p->type == brace_to_find) {
-      if (opened_branches == 1) {
-        break;
-      } else {
-        opened_branches--;
+    case R_ARR_BRACE: // ]
+      depth--;
+      after_comma = 0;
+      break;
+
+    case RBRACE: // }
+      depth--;
+      after_comma = 0;
+      break;
+
+    case COMMA: // ,
+      if (depth == 1) {
+        after_comma = 1;
       }
-    }
+      break;
 
-    if (p->type == brace) {
-      opened_branches++;
+    default:
+      if (depth == 1 && !after_comma) {
+        count++;
+        after_comma = 0;
+      }
+      break;
     }
-    
     p++;
   }
 
-  *start = p;
-
-  return 0;
-}
-
-int get_elements_number(Token **start) {
-  Token *p = *start;
-
-  if (p->type != L_ARR_BRACE) {
-    fprintf(stderr, "start token of a list must be with L_ARR_BRACE type");
-
+  if (depth != 0) {
+    fprintf(stderr, "Error: unclosed list or array\n");
     return -1;
-  } 
-
-  p++;
-
-  if (p->type == L_ARR_BRACE || p->type == LBRACE) {
-    
   }
+
+  return count;
 }
 
 List *parse_list(Token **start) {
   Token *p = *start;
 
-  int len = 1;
+  int len = count_array_elements(&p);
+  if (len < 0) {
+    fprintf(stderr, "failed count array elements");
 
-  int opened_branches = 1;
-
-  p++;
-
-  while (opened_branches != 0) {
-    if (p->type == L_ARR_BRACE) {
-      opened_branches++;
-    } else if (p->type == R_ARR_BRACE) {
-      opened_branches--;
-    }
-    p++;
-    len++;
+    return NULL;
   }
 
   List *list = malloc(sizeof(List));
@@ -222,14 +225,66 @@ List *parse_list(Token **start) {
     return NULL;
   }
 
+  Value *current_list_element = list->elems;
+
   list->len = len;
 
   p = *start + 1;
 
+  while (p->type != R_ARR_BRACE) {
+    if (p->type != COMMA) {
+      ValueTyped *value = parse_value(&p);
+      if (value == NULL) {
+        fprintf(stderr, "failed parse value from list");
+
+        free(list);
+        free(list->elems);
+
+        return NULL;
+      }
+
+      switch (value->type) {
+      case STRING_VALUE:
+        current_list_element->str = value->val->str;
+      case OBJECT:
+        current_list_element->obj = value->val->obj;
+      case LIST:
+        current_list_element->list = value->val->list;
+      }
+
+      current_list_element++;
+    } else {
+      p++;
+    }
+  }
 
   return list;
 }
 
-Object *parse_object(Token **start) {}
+int count_pairs_in_object(Token **start) {
+  Token *p = *start;
+
+  if (!p || p->type != L_ARR_BRACE) {
+    fprintf(stderr, "expexted token");
+    return -1;
+  }
+
+  int depth = 1;
+  int count = 0;
+  int after_comma = 0;
+
+  while (depth != 0) {
+    switch (p->type) {}
+  }
+}
+
+Object *parse_object(Token **start) {
+  Object *obj = malloc(sizeof(Object));
+  if (!obj) {
+    fprintf(stderr, "failed parse object");
+
+    return NULL;
+  }
+}
 
 Object *tokens_to_ast(Token *tokens) {}
