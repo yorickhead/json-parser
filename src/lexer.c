@@ -271,19 +271,82 @@ int count_pairs_in_object(Token **start) {
 
   int depth = 1;
   int count = 0;
-  int after_comma = 0;
+  int after_key = 0;
 
   while (depth != 0) {
-    switch (p->type) {}
+    if (p->type == STRING) {
+      if (depth == 1 && after_key == 0) {
+        after_key = 1;
+        count++;
+      }
+
+      after_key = 0;
+    }
+
+    if (p->type == L_ARR_BRACE || p->type == LBRACE) {
+      depth++;
+    }
+
+    if (p->type == R_ARR_BRACE || p->type == RBRACE) {
+      depth--;
+    }
   }
+
+  return count;
 }
 
 Object *parse_object(Token **start) {
+  Token *p = *start;
+
   Object *obj = malloc(sizeof(Object));
   if (!obj) {
     fprintf(stderr, "failed parse object");
 
     return NULL;
+  }
+
+  int pair_count = count_pairs_in_object(&p);
+  if (pair_count < 0) {
+    fprintf(stderr, "failed count pairs");
+
+    return NULL;
+  }
+
+  Pair *pairs = calloc(pair_count, sizeof(Pair));
+  if (!pairs) {
+    fprintf(stderr, "failed allocate memory for pairs");
+
+    return NULL;
+  }
+
+  Pair *current_pair;
+
+  p++;
+
+  int after_comma = 0;
+
+  while (p->type != RBRACE) {
+    if (after_comma == 1) {
+      after_comma = 0;
+
+      if (p->type != STRING) {
+        fprintf(stderr, "token after comma must be key");
+
+        return NULL;
+      }
+
+      current_pair->key = calloc(p->len + 1, sizeof(char));
+      if (!current_pair->key) {
+        fprintf(stderr, "failed allocate memory for key");
+
+        return NULL;
+      }
+
+      memcpy(current_pair->key, p->start, p->len);
+    } else if (p->type == COMMA) {
+      after_comma = 1;
+    } else {
+    }
   }
 }
 
