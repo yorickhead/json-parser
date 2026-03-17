@@ -11,25 +11,30 @@ enum ValueType {
   LIST,
 };
 
- union Value{
+typedef struct {
+  Value *val;
+  enum ValueType type;
+} ValueTyped;
+
+union Value {
   char *str;
   Object *obj;
-  List* list;
+  List *list;
 };
 
-struct List{
+struct List {
   int len;
-  Value *elems;
+  ValueTyped *elems;
 };
 
 struct Object {
+  int pair_count;
   Pair *pairs;
 };
 
 struct Pair {
   char *key;
-  enum ValueType type;
-  Value value;
+  ValueTyped *value;
 };
 
 Object *tokens_to_ast(Token *tokens);
