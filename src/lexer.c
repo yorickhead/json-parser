@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#define IF_NOT_NULL_DESTROY_STRING(p)
 
 Pair *parse_pair(Token **start);
 Object *parse_object(Token **start);
@@ -12,35 +15,58 @@ void destroy_pair(Pair *pair);
 void destroy_object(Object *obj);
 
 void destroy_value(ValueTyped *vt) {
+  if (vt->type == 0 || vt == NULL) {
+    return;
+  }
+
   switch (vt->type) {
   case STRING_VALUE:
-    free(vt->val->str);
+    if (vt->val->str != NULL)
+      free(vt->val->str);
     break;
   case OBJECT:
-    destroy_object(vt->val->obj);
+    if (vt->val->obj != NULL)
+      destroy_object(vt->val->obj);
     break;
   case LIST:
-    destroy_list(vt->val->list);
+    if (vt->val->list != NULL)
+      destroy_list(vt->val->list);
     break;
   }
+
+  free(vt);
 }
 
 void destroy_list(List *list) {
   for (int i = 0; i < list->len; i++) {
     destroy_value(&list->elems[i]);
   }
+
+  free(list);
 }
 
 void destroy_pair(Pair *pair) {
   free(pair->key);
   destroy_value(pair->value);
+
+  free(pair);
 }
 
 void destroy_object(Object *obj) {
-  
+  for (int i = 0; i < obj->pair_count; i++) {
+    destroy_pair(&obj->pairs[i]);
+  }
+
+  free(obj);
 }
 
 ValueTyped *parse_value(Token **start) {
+  if (start == NULL || *start == NULL) {
+    fprintf(stderr, "start is NULL");
+
+    return NULL;
+  }
+
   Token *p = *start;
   ValueTyped *value_typed = malloc(sizeof(ValueTyped));
   if (!value_typed) {
@@ -58,13 +84,19 @@ ValueTyped *parse_value(Token **start) {
     return NULL;
   }
 
+  value_typed->type = 0;
+
+  value_typed->val->str = NULL;
+  value_typed->val->obj = NULL;
+  value_typed->val->list = NULL;
+
   switch (p->type) {
   case STRING: {
     char *str = calloc(p->len + 1, sizeof(char));
     if (!str) {
       fprintf(stderr, "failed allocate memory for value");
 
-      goto cleanup;
+      goto fail;
     }
 
     memcpy(str, p->start, p->len);
@@ -85,7 +117,7 @@ ValueTyped *parse_value(Token **start) {
     if (lst == NULL) {
       fprintf(stderr, "failed parse list");
 
-      goto cleanup;
+      goto fail;
     }
 
     value_typed->type = LIST;
@@ -99,7 +131,7 @@ ValueTyped *parse_value(Token **start) {
     if (obj == NULL) {
       fprintf(stderr, "failed parse object");
 
-      goto cleanup;
+      goto fail;
     }
 
     value_typed->type = OBJECT;
@@ -110,23 +142,15 @@ ValueTyped *parse_value(Token **start) {
   default:
     fprintf(stderr, "unknown token type");
 
-    goto cleanup;
+    goto fail;
   }
 
   *start = p;
 
   return value_typed;
 
-cleanup:
-  if (value_typed->type) {
-    free(value_typed->val->str);
-    free(value_typed->val->obj);
-    free(value_typed->val->list);
-
-    free(value_typed->val);
-  }
-
-  free(value_typed);
+fail:
+  destroy_value(value_typed);
   return NULL;
 }
 
@@ -286,9 +310,9 @@ List *parse_list(Token **start) {
       current_list_element = value;
 
       current_list_element++;
-    } else {
-      p++;
     }
+
+    p++;
   }
 
   return list;
@@ -342,12 +366,16 @@ Object *parse_object(Token **start) {
   if (pair_count < 0) {
     fprintf(stderr, "failed count pairs");
 
+    free(obj);
+
     return NULL;
   }
 
   Pair *pairs = calloc(pair_count, sizeof(Pair));
   if (!pairs) {
     fprintf(stderr, "failed allocate memory for pairs");
+
+    free(obj);
 
     return NULL;
   }
@@ -368,6 +396,9 @@ Object *parse_object(Token **start) {
       if (p->type != STRING) {
         fprintf(stderr, "token after comma must be key");
 
+        free(obj->pairs);
+        free(obj);
+
         return NULL;
       }
 
@@ -375,27 +406,46 @@ Object *parse_object(Token **start) {
       if (!current_pair->key) {
         fprintf(stderr, "failed allocate memory for key");
 
+        free(obj->pairs);
+        free(obj);
+
         return NULL;
       }
 
       memcpy(current_pair->key, p->start, p->len);
-      p++;
     } else if (p->type == COMMA) {
       after_comma = 1;
-      p++;
+    } else if (p->type == COLON) {
+      continue;
     } else {
       ValueTyped *value = parse_value(&p);
       if (value == NULL) {
         fprintf(stderr, "failed parse value from pair");
+
+        free(obj->pairs);
+        free(obj);
 
         return NULL;
       }
 
       current_pair->value = value;
     }
+
+    p++;
   }
 
   return obj;
 }
 
-Object *tokens_to_ast(Token *tokens) {}
+Object *tokens_to_ast(Token *tokens) {
+  Token *p = tokens;
+
+  Object *ast = parse_object(&p);
+  if (ast == NULL) {
+    fprintf(stderr, "failed parse json data to ast");
+
+    return NULL;
+  }
+
+  
+}
