@@ -66,7 +66,7 @@ Token get_next_token(const char **pos, int *opened_braces) {
     tkn.len = 1;
 
     (*opened_braces)++;
-    (*pos)++;
+    *pos = p + 1;
 
     return tkn;
   case '}':
@@ -75,7 +75,7 @@ Token get_next_token(const char **pos, int *opened_braces) {
     tkn.len = 1;
 
     (*opened_braces)--;
-    (*pos)++;
+    *pos = p + 1;
 
     return tkn;
   case ',':
@@ -83,7 +83,7 @@ Token get_next_token(const char **pos, int *opened_braces) {
     tkn.start = p;
     tkn.len = 1;
 
-    (*pos)++;
+    *pos = p + 1;
 
     return tkn;
   case ':':
@@ -91,7 +91,7 @@ Token get_next_token(const char **pos, int *opened_braces) {
     tkn.start = p;
     tkn.len = 1;
 
-    (*pos)++;
+    *pos = p + 1;
 
     return tkn;
 
@@ -100,7 +100,7 @@ Token get_next_token(const char **pos, int *opened_braces) {
     tkn.start = p;
     tkn.len = 1;
 
-    (*pos)++;
+    *pos = p + 1;
 
     return tkn;
   case ']':
@@ -108,7 +108,7 @@ Token get_next_token(const char **pos, int *opened_braces) {
     tkn.start = p;
     tkn.len = 1;
 
-    (*pos)++;
+    *pos = p + 1;
     return tkn;
   case '"':
     tkn = get_token_from_string(&p);
@@ -158,7 +158,7 @@ Token *tokenize(const char *data) {
   tkn.len = 0;
   tkn.start = NULL;
 
-  *(position+1) = tkn;
+  *position = tkn;
 
   return start;
 }
