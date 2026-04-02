@@ -38,3 +38,4 @@ struct Pair {
 };
 
 Object *tokens_to_ast(Token *tokens);
+void destroy_object(Object *obj);
