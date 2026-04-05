@@ -1,4 +1,4 @@
-#include "lexer.h"
+#include "fetcher.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -149,6 +149,32 @@ int main() {
   printf("\n=== AST ===\n");
   print_object(ast, 0);
   printf("\n\n");
+
+  printf("\n=== FETCHER TEST ===\n");
+
+  // Test 1: Simple nested object access
+  char *value = (char *)fetch_from_ast("nested.key1", ast);
+  printf("Test 1 - nested.key1: %s\n", value ? value : "not found");
+
+  // Test 2: Array element (string)
+  char *array_elem = (char *)fetch_from_ast("items.[0]", ast);
+  printf("Test 2 - items.[0]: %s\n", array_elem ? array_elem : "not found");
+
+  // Test 3: Another array element (string)
+  char *array_elem2 = (char *)fetch_from_ast("items.[1]", ast);
+  printf("Test 3 - items.[1]: %s\n", array_elem2 ? array_elem2 : "not found");
+
+  // Test 4: Deep nested object
+  char *deep_value = (char *)fetch_from_ast("deep.level2.level3", ast);
+  printf("Test 4 - deep.level2.level3: %s\n", deep_value ? deep_value : "not found");
+
+  // Test 5: Object inside array (access nested field)
+  char *user_name = (char *)fetch_from_ast("users.[0].name", ast);
+  printf("Test 5 - users.[0].name: %s\n", user_name ? user_name : "not found");
+
+  // Test 6: Another object from array
+  char *user_age = (char *)fetch_from_ast("users.[1].age", ast);
+  printf("Test 6 - users.[1].age: %s\n", user_age ? user_age : "not found");
 
   destroy_object(ast);
   free(tokens);
